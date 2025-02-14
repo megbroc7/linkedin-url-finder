@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SABINA STRATEGIES</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@700&display=swap" rel="stylesheet">
+    
+    <style>
+      body {
+        background-color: #f4f4f4;
+        color: #212529;
+        font-family: 'Poppins', sans-serif;
+      }
+      .hero {
+        background-color: #f4f4f4;
+        height: 350px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        font-size: 3rem;
+        font-weight: 700;
+        font-family: 'Roboto Condensed', sans-serif;
+        color: #000000;
+      }
+      .container {
+        max-width: 1200px;
+        margin-top: -50px;
+        background: white;
+        border-radius: 12px;
+        padding: 40px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        text-align: center;
+      }
+      h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #1a4d2e;
+        font-family: 'Roboto Condensed', sans-serif;
+      }
+      .lead {
+        font-size: 1.3rem;
+        color: #333;
+        margin-bottom: 30px;
+        font-family: 'Roboto Condensed', sans-serif;
+      }
+      .instructions {
+        background: #eef7ee;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: left;
+        color: #1a4d2e;
+        margin-bottom: 30px;
+      }
+      .instructions strong {
+        color: #155e2b;
+      }
+      .form-label {
+        font-weight: 500;
+        color: #1a4d2e;
+      }
+      .btn-custom {
+        background-color: #1a4d2e;
+        color: #fff;
+        padding: 14px;
+        font-size: 1.2rem;
+        font-weight: 600;
+        border-radius: 50px;
+        transition: all 0.3s ease;
+      }
+      .btn-custom:hover {
+        background-color: #4a7c59;
+      }
+      .footer {
+        margin-top: 40px;
+        font-size: 1rem;
+        color: #4a7c59;
+      }
+      #loading-overlay {
+        display: none;
+      }
+      .alert-custom {
+        background: #ffcccc;
+        color: #a33;
+        padding: 15px;
+        border-radius: 10px;
+        font-weight: bold;
+        margin-bottom: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hero">SABINA STRATEGIES</div>
+    
+    <div class="container">
+      <h1>LinkedIn URL Search</h1>
+      <p class="lead">Grow the vision you’ve imagined—explore how our approach brings it to life.</p>
+
+      <!-- Flash Messages (Error Display) -->
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="alert alert-custom">
+            {% for message in messages %}
+              <p>{{ message }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+      
+      <div class="instructions">
+        <h4>How to Use</h4>
+        <p>To make this work smoothly, your CSV file should have exactly <strong>three headers</strong>:</p>
+        <ul>
+          <li><strong>First Name</strong></li>
+          <li><strong>Last Name</strong></li>
+          <li><strong>Company</strong></li>
+        </ul>
+        <p>If your file doesn't follow this format, the search won't work! Keep it clean, and make sure to stay under <strong>100 entries</strong> per upload so it doesn't take forever.</p>
+      </div>
+      
+      <form id="upload-form" method="post" enctype="multipart/form-data">
+        <div class="mb-3">
+          <label for="fileInput" class="form-label">Choose CSV File (Max 100 entries)</label>
+          <input class="form-control" type="file" id="fileInput" name="file" accept=".csv">
+          <small class="text-danger" id="error-message" style="display: none;">⚠️ Too many entries! Please upload a file with 100 or fewer rows.</small>
+        </div>
+        <button type="submit" class="btn btn-custom w-100" id="submit-button">
+          <i class="bi bi-upload"></i> Upload & Process
+        </button>
+      </form>
+      
+      <p class="text-muted mt-4"><strong>Disclaimer:</strong> The data gathered through this tool is experimental and should be independently verified for accuracy.</p>
+
+      <div class="footer">
+        <p>&copy; 2025 SABINA STRATEGIES. All rights reserved.</p>
+      </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Client-side Validation: Limit to 100 rows -->
+    <script>
+      document.getElementById('fileInput').addEventListener('change', function(event) {
+          const file = event.target.files[0];
+          if (file) {
+              const reader = new FileReader();
+              reader.onload = function(e) {
+                  const rows = e.target.result.split("\n").length - 1;
+                  if (rows > 100) {
+                      document.getElementById("error-message").style.display = "block";
+                      document.getElementById("submit-button").disabled = true;
+                  } else {
+                      document.getElementById("error-message").style.display = "none";
+                      document.getElementById("submit-button").disabled = false;
+                  }
+              };
+              reader.readAsText(file);
+          }
+      });
+    </script>
+
+  </body>
+</html>
