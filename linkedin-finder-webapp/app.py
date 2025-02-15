@@ -3,7 +3,8 @@ import os
 import pandas as pd
 import time
 import random
-from werkzeug.utils import secure_filename
+import chromedriver_autoinstaller
+import shutil
 
 # Selenium imports
 from selenium import webdriver
@@ -13,8 +14,9 @@ from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Replace with something secure in production
+app.secret_key = 'your_secret_key'  # Replace with something more secure in production
 
+# Folders for uploads and outputs
 UPLOAD_FOLDER = 'uploads'
 OUTPUT_FOLDER = 'outputs'
 ALLOWED_EXTENSIONS = {'csv'}
@@ -39,27 +41,32 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def create_webdriver():
-    """Create and return a headless Chrome webdriver with stealth options."""
+    """Create and return a headless Chrome WebDriver with stealth options."""
+    chrome_path = shutil.which("google-chrome")  # Check if Chrome is installed
+
+    if not chrome_path:
+        print("🚀 Installing Chrome...")
+        chromedriver_autoinstaller.install()  # Auto-install Chrome and ChromeDriver
+
+    # Set up Chrome options
     chrome_options = Options()
-    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--headless")  # Run in headless mode
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-    
+
+    # Hide automation flags
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option("useAutomationExtension", False)
-    
+
+    # Rotate user-agent
     user_agent = random.choice(USER_AGENTS)
     chrome_options.add_argument(f"user-agent={user_agent}")
-    
+
+    # Start WebDriver
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=chrome_options)
     
-    # Override navigator.webdriver
-    driver.execute_cdp_cmd(
-        "Page.addScriptToEvaluateOnNewDocument",
-        {"source": "Object.defineProperty(navigator, 'webdriver', { get: () => undefined })"}
-    )
     return driver
 
 def search_linkedin_url(driver, first_name, last_name, company):
@@ -94,6 +101,9 @@ def process_file(input_path, output_path):
     required = {"First Name", "Last Name", "Company"}
     if not required.issubset(df.columns):
         raise ValueError("Input CSV must have columns: First Name, Last Name, Company")
+
+    if len(df) > 100:
+        raise ValueError("You can only process up to 100 searches at once. Please reduce your file size.")
 
     df["LinkedIn URL"] = ""
 
@@ -131,11 +141,11 @@ def upload_file():
             upload_path = os.path.join(UPLOAD_FOLDER, filename)
             file.save(upload_path)
 
-            # Check the number of rows in the uploaded CSV
+            # Check row limit before processing
             df = pd.read_csv(upload_path)
             if len(df) > 100:
                 flash('You can only process up to 100 searches at once. Please reduce your file size.')
-                return redirect(request.url)  # Redirect back to the upload page
+                return redirect(request.url)
 
             # Generate an output filename
             output_filename = filename.rsplit('.', 1)[0] + '_output.csv'
@@ -148,14 +158,13 @@ def upload_file():
                 flash(str(e))
                 return redirect(request.url)
 
-            # Redirect to completion page
             return redirect(url_for('processing_complete', filename=output_filename))
 
     return render_template('index.html')
 
 @app.route('/complete/<filename>')
 def processing_complete(filename):
-    """Renders a page that says "Your file is ready!"."""
+    """Renders a page that says "Your file is ready!" with a download link."""
     return render_template('complete.html', filename=filename)
 
 @app.route('/download/<filename>')
