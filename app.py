@@ -5,6 +5,7 @@ import time
 import random
 import chromedriver_autoinstaller
 import shutil
+from werkzeug.utils import secure_filename
 
 # Selenium imports
 from selenium import webdriver
