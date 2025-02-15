@@ -1,0 +1,23 @@
+[0;1;32m●[0m linkedin-app.service - Gunicorn instance to serve LinkedIn Finder
+     Loaded: loaded (/etc/systemd/system/linkedin-app.service; enabled; vendor preset: enabled)
+     Active: [0;1;32mactive (running)[0m since Sat 2025-02-15 21:40:42 UTC; 11min ago
+   Main PID: 35183 (gunicorn)
+      Tasks: 4 (limit: 1102)
+     Memory: 171.1M
+        CPU: 4.510s
+     CGroup: /system.slice/linkedin-app.service
+             ├─35183 /root/linkedin-url-finder/venv/bin/python3 /root/linkedin-url-finder/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:8000 app:app
+             ├─35184 /root/linkedin-url-finder/venv/bin/python3 /root/linkedin-url-finder/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:8000 app:app
+             ├─35185 /root/linkedin-url-finder/venv/bin/python3 /root/linkedin-url-finder/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:8000 app:app
+             └─35216 /root/linkedin-url-finder/venv/bin/python3 /root/linkedin-url-finder/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:8000 app:app
+
+Feb 15 21:41:42 linkedin-scraper gunicorn[35186]:     data = unreader.read()
+Feb 15 21:41:42 linkedin-scraper gunicorn[35186]:   File "/root/linkedin-url-finder/venv/lib/python3.10/site-packages/gunicorn/http/unreader.py", line 36, in read
+Feb 15 21:41:42 linkedin-scraper gunicorn[35186]:     d = self.chunk()
+Feb 15 21:41:42 linkedin-scraper gunicorn[35186]:   File "/root/linkedin-url-finder/venv/lib/python3.10/site-packages/gunicorn/http/unreader.py", line 63, in chunk
+Feb 15 21:41:42 linkedin-scraper gunicorn[35186]:     return self.sock.recv(self.mxchunk)
+Feb 15 21:41:42 linkedin-scraper gunicorn[35186]:   File "/root/linkedin-url-finder/venv/lib/python3.10/site-packages/gunicorn/workers/base.py", line 204, in handle_abort
+Feb 15 21:41:42 linkedin-scraper gunicorn[35186]:     sys.exit(1)
+Feb 15 21:41:42 linkedin-scraper gunicorn[35186]: SystemExit: 1
+Feb 15 21:41:42 linkedin-scraper gunicorn[35186]: [2025-02-15 21:41:42 +0000] [35186] [INFO] Worker exiting (pid: 35186)
+Feb 15 21:41:42 linkedin-scraper gunicorn[35216]: [2025-02-15 21:41:42 +0000] [35216] [INFO] Booting worker with pid: 35216

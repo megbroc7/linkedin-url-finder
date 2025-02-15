@@ -1,0 +1,23 @@
+[0;1;32m●[0m linkedin-app.service - Gunicorn instance to serve LinkedIn Finder
+     Loaded: loaded (/etc/systemd/system/linkedin-app.service; enabled; vendor preset: enabled)
+     Active: [0;1;32mactive (running)[0m since Sat 2025-02-15 22:10:08 UTC; 13min ago
+   Main PID: 38701 (gunicorn)
+      Tasks: 4 (limit: 1102)
+     Memory: 165.0M
+        CPU: 3.109s
+     CGroup: /system.slice/linkedin-app.service
+             ├─38701 /root/linkedin-url-finder/venv/bin/python3 /root/linkedin-url-finder/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:8000 app:app
+             ├─38702 /root/linkedin-url-finder/venv/bin/python3 /root/linkedin-url-finder/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:8000 app:app
+             ├─38703 /root/linkedin-url-finder/venv/bin/python3 /root/linkedin-url-finder/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:8000 app:app
+             └─38704 /root/linkedin-url-finder/venv/bin/python3 /root/linkedin-url-finder/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:8000 app:app
+
+Feb 15 22:10:08 linkedin-scraper systemd[1]: linkedin-app.service: Deactivated successfully.
+Feb 15 22:10:08 linkedin-scraper systemd[1]: Stopped Gunicorn instance to serve LinkedIn Finder.
+Feb 15 22:10:08 linkedin-scraper systemd[1]: linkedin-app.service: Consumed 2.533s CPU time.
+Feb 15 22:10:08 linkedin-scraper systemd[1]: Started Gunicorn instance to serve LinkedIn Finder.
+Feb 15 22:10:08 linkedin-scraper gunicorn[38701]: [2025-02-15 22:10:08 +0000] [38701] [INFO] Starting gunicorn 23.0.0
+Feb 15 22:10:08 linkedin-scraper gunicorn[38701]: [2025-02-15 22:10:08 +0000] [38701] [INFO] Listening at: http://0.0.0.0:8000 (38701)
+Feb 15 22:10:08 linkedin-scraper gunicorn[38701]: [2025-02-15 22:10:08 +0000] [38701] [INFO] Using worker: sync
+Feb 15 22:10:08 linkedin-scraper gunicorn[38702]: [2025-02-15 22:10:08 +0000] [38702] [INFO] Booting worker with pid: 38702
+Feb 15 22:10:08 linkedin-scraper gunicorn[38703]: [2025-02-15 22:10:08 +0000] [38703] [INFO] Booting worker with pid: 38703
+Feb 15 22:10:08 linkedin-scraper gunicorn[38704]: [2025-02-15 22:10:08 +0000] [38704] [INFO] Booting worker with pid: 38704
