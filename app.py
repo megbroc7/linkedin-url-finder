@@ -52,7 +52,7 @@ def install_chrome():
     chromedriver_autoinstaller.install()  # Auto-install ChromeDriver
 
 def create_webdriver():
-    """Ensure Chrome is installed, then create a headless WebDriver."""
+    """Ensure Chrome is installed, then create a memory-optimized WebDriver."""
     install_chrome()  # Ensure Chrome is installed
 
     # Set up Chrome options
@@ -60,8 +60,11 @@ def create_webdriver():
     chrome_options.add_argument("--headless")  # Run in headless mode
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")  # Reduce memory usage
+    chrome_options.add_argument("--disable-software-rasterizer")  
+    chrome_options.add_argument("--blink-settings=imagesEnabled=false")  # Don't load images
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-
+    
     # Hide automation flags
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option("useAutomationExtension", False)
