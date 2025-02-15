@@ -43,14 +43,21 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def install_chrome():
-    """Manually install Chrome on Render if not found."""
+    """Download and set up a Chrome binary manually for Render."""
     chrome_path = shutil.which("google-chrome")
 
     if not chrome_path:
-        print("🚀 Installing Google Chrome...")
-        subprocess.run("wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb", shell=True, check=True)
-        subprocess.run("apt install ./google-chrome-stable_current_amd64.deb -y", shell=True, check=True)
+        print("🚀 Installing Chrome from prebuilt binaries...")
+        os.makedirs("/opt/google/chrome", exist_ok=True)
+        subprocess.run(
+            "wget -qO- https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb | tar xz -C /opt/google/chrome",
+            shell=True,
+            check=True
+        )
     
+    os.environ["CHROME_BIN"] = "/opt/google/chrome/google-chrome"
+    os.environ["PATH"] += os.pathsep + "/opt/google/chrome/"
+
     chromedriver_autoinstaller.install()  # Auto-install ChromeDriver
 
 def create_webdriver():
