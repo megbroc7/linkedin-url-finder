@@ -42,12 +42,31 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def install_chrome():
-    """Install Chrome the normal way using apt (only works on paid Render plans)."""
-    chrome_path = subprocess.run("which google-chrome", shell=True, capture_output=True).stdout.decode().strip()
+    """Ensure Chrome is installed, but only install it if it's missing."""
+    chrome_path = shutil.which("google-chrome") or shutil.which("chromium") or shutil.which("chromium-browser")
 
-    if not chrome_path:
-        print("🚀 Installing Google Chrome...")
-        subprocess.run("apt update && apt install -y google-chrome-stable", shell=True, check=True)
+    if chrome_path:
+        print(f"✅ Chrome is already installed at: {chrome_path}")
+        return  # Chrome is already installed, so we skip installation
+
+    print("🚀 Installing Chrome...")
+    os.makedirs("/tmp/chrome", exist_ok=True)
+
+    # Download Chrome
+    subprocess.run(
+        "wget -qO /tmp/chrome-linux.zip https://storage.googleapis.com/chrome-for-testing-public/122.0.6261.94/linux64/chrome-linux.zip",
+        shell=True,
+        check=True
+    )
+    subprocess.run(
+        "unzip /tmp/chrome-linux.zip -d /tmp/chrome/",
+        shell=True,
+        check=True
+    )
+
+    # Set environment variables for Selenium
+    os.environ["CHROME_BIN"] = "/tmp/chrome/chrome-linux/chrome"
+    os.environ["PATH"] += os.pathsep + "/tmp/chrome/chrome-linux/"
 
     chromedriver_autoinstaller.install()  # Auto-install ChromeDriver
 
