@@ -3,7 +3,6 @@ import os
 import pandas as pd
 import time
 import random
-import shutil
 import subprocess
 import chromedriver_autoinstaller
 from werkzeug.utils import secure_filename
@@ -43,28 +42,12 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def install_chrome():
-    """Install a fully functional Google Chrome version that works on Render."""
-    chrome_path = shutil.which("google-chrome") or shutil.which("chromium") or shutil.which("chromium-browser")
+    """Install Chrome the normal way using apt (only works on paid Render plans)."""
+    chrome_path = subprocess.run("which google-chrome", shell=True, capture_output=True).stdout.decode().strip()
 
     if not chrome_path:
-        print("🚀 Installing Chrome in /tmp/ ...")
-        os.makedirs("/tmp/chrome", exist_ok=True)
-
-        # Download the latest stable Google Chrome build
-        subprocess.run(
-            "wget -qO /tmp/chrome-linux.zip https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_current_amd64.deb",
-            shell=True,
-            check=True
-        )
-        subprocess.run(
-            "dpkg -x /tmp/chrome-linux.zip /tmp/chrome/",
-            shell=True,
-            check=True
-        )
-
-        # Set environment variables so Selenium can find Chrome
-        os.environ["CHROME_BIN"] = "/tmp/chrome/opt/google/chrome/google-chrome"
-        os.environ["PATH"] += os.pathsep + "/tmp/chrome/opt/google/chrome/"
+        print("🚀 Installing Google Chrome...")
+        subprocess.run("apt update && apt install -y google-chrome-stable", shell=True, check=True)
 
     chromedriver_autoinstaller.install()  # Auto-install ChromeDriver
 
