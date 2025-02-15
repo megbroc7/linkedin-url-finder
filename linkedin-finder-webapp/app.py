@@ -48,14 +48,17 @@ def install_chrome():
 
     if chrome_path:
         print(f"✅ Chrome is already installed at: {chrome_path}")
-        return  # Chrome is already installed, so we skip installation
+        return  # ✅ Chrome is already installed, no need to reinstall
 
     print("🚀 Installing Chrome...")
     os.makedirs("/tmp/chrome", exist_ok=True)
 
+    # Ensure wget is installed
+    subprocess.run("sudo apt update && sudo apt install -y wget", shell=True, check=True)
+
     # Download Chrome
     subprocess.run(
-        "wget -qO /tmp/chrome-linux.zip https://storage.googleapis.com/chrome-for-testing-public/122.0.6261.94/linux64/chrome-linux.zip",
+        "wget -O /tmp/chrome-linux.zip https://storage.googleapis.com/chrome-for-testing-public/122.0.6261.94/linux64/chrome-linux.zip",
         shell=True,
         check=True
     )
@@ -123,37 +126,6 @@ def search_linkedin_url(driver, first_name, last_name, company):
     except Exception as e:
         return f"Error: {str(e)}"
 
-def process_file(input_path, output_path):
-    """Reads the CSV, scrapes LinkedIn URLs, writes to a new CSV."""
-    df = pd.read_csv(input_path)
-    
-    # Validate columns
-    required = {"First Name", "Last Name", "Company"}
-    if not required.issubset(df.columns):
-        raise ValueError("Input CSV must have columns: First Name, Last Name, Company")
-
-    if len(df) > 100:
-        raise ValueError("You can only process up to 100 searches at once. Please reduce your file size.")
-
-    df["LinkedIn URL"] = ""
-
-    for i, row in df.iterrows():
-        first_name = str(row["First Name"])
-        last_name = str(row["Last Name"])
-        company = str(row["Company"])
-        
-        print(f"Searching LinkedIn for {first_name} {last_name} @ {company}...")
-        driver = create_webdriver()
-        linkedin_url = search_linkedin_url(driver, first_name, last_name, company)
-        driver.quit()
-
-        df.at[i, "LinkedIn URL"] = linkedin_url
-        
-        # Pause to avoid rate limits
-        time.sleep(random.uniform(5, 10))
-
-    df.to_csv(output_path, index=False)
-
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
     if request.method == 'POST':
@@ -170,12 +142,6 @@ def upload_file():
             filename = secure_filename(file.filename)
             upload_path = os.path.join(UPLOAD_FOLDER, filename)
             file.save(upload_path)
-
-            # Check row limit before processing
-            df = pd.read_csv(upload_path)
-            if len(df) > 100:
-                flash('You can only process up to 100 searches at once. Please reduce your file size.')
-                return redirect(request.url)
 
             output_filename = filename.rsplit('.', 1)[0] + '_output.csv'
             output_path = os.path.join(OUTPUT_FOLDER, output_filename)
