@@ -43,20 +43,28 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def install_chrome():
-    """Download and set up a Chrome binary manually for Render."""
+    """Download and install Chrome inside /tmp/ for Render."""
     chrome_path = shutil.which("google-chrome")
 
     if not chrome_path:
-        print("🚀 Installing Chrome from prebuilt binaries...")
-        os.makedirs("/opt/google/chrome", exist_ok=True)
+        print("🚀 Installing Chrome in /tmp/ ...")
+        os.makedirs("/tmp/chrome", exist_ok=True)
+
+        # Download Chrome and extract it to /tmp/
         subprocess.run(
-            "wget -qO- https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb | tar xz -C /opt/google/chrome",
+            "wget -qO /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb",
             shell=True,
             check=True
         )
-    
-    os.environ["CHROME_BIN"] = "/opt/google/chrome/google-chrome"
-    os.environ["PATH"] += os.pathsep + "/opt/google/chrome/"
+        subprocess.run(
+            "dpkg -x /tmp/chrome.deb /tmp/chrome/",
+            shell=True,
+            check=True
+        )
+
+        # Set environment variables to use this Chrome
+        os.environ["CHROME_BIN"] = "/tmp/chrome/opt/google/chrome/google-chrome"
+        os.environ["PATH"] += os.pathsep + "/tmp/chrome/opt/google/chrome/"
 
     chromedriver_autoinstaller.install()  # Auto-install ChromeDriver
 
@@ -163,11 +171,9 @@ def upload_file():
                 flash('You can only process up to 100 searches at once. Please reduce your file size.')
                 return redirect(request.url)
 
-            # Generate an output filename
             output_filename = filename.rsplit('.', 1)[0] + '_output.csv'
             output_path = os.path.join(OUTPUT_FOLDER, output_filename)
 
-            # Process the file
             try:
                 process_file(upload_path, output_path)
             except Exception as e:
@@ -180,12 +186,10 @@ def upload_file():
 
 @app.route('/complete/<filename>')
 def processing_complete(filename):
-    """Renders a page that says "Your file is ready!" with a download link."""
     return render_template('complete.html', filename=filename)
 
 @app.route('/download/<filename>')
 def download_file(filename):
-    """Serves the processed CSV as a file download."""
     path = os.path.join(OUTPUT_FOLDER, filename)
     if not os.path.exists(path):
         flash("File not found.")
