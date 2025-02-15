@@ -3,8 +3,8 @@ import os
 import pandas as pd
 import time
 import random
+import subprocess
 import chromedriver_autoinstaller
-import shutil
 from werkzeug.utils import secure_filename
 
 # Selenium imports
@@ -41,21 +41,30 @@ def allowed_file(filename):
     """Check if the uploaded file is a CSV."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def create_webdriver():
-    """Create and return a headless Chrome WebDriver with stealth options."""
-    chrome_path = shutil.which("google-chrome")  # Check if Chrome is installed
+def install_chrome():
+    """Install Chrome the normal way using apt (only works on paid Render plans)."""
+    chrome_path = subprocess.run("which google-chrome", shell=True, capture_output=True).stdout.decode().strip()
 
     if not chrome_path:
-        print("🚀 Installing Chrome...")
-        chromedriver_autoinstaller.install()  # Auto-install Chrome and ChromeDriver
+        print("🚀 Installing Google Chrome...")
+        subprocess.run("apt update && apt install -y google-chrome-stable", shell=True, check=True)
+
+    chromedriver_autoinstaller.install()  # Auto-install ChromeDriver
+
+def create_webdriver():
+    """Ensure Chrome is installed, then create a memory-optimized WebDriver."""
+    install_chrome()  # Ensure Chrome is installed
 
     # Set up Chrome options
     chrome_options = Options()
     chrome_options.add_argument("--headless")  # Run in headless mode
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")  # Reduce memory usage
+    chrome_options.add_argument("--disable-software-rasterizer")  
+    chrome_options.add_argument("--blink-settings=imagesEnabled=false")  # Don't load images
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-
+    
     # Hide automation flags
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option("useAutomationExtension", False)
@@ -148,11 +157,9 @@ def upload_file():
                 flash('You can only process up to 100 searches at once. Please reduce your file size.')
                 return redirect(request.url)
 
-            # Generate an output filename
             output_filename = filename.rsplit('.', 1)[0] + '_output.csv'
             output_path = os.path.join(OUTPUT_FOLDER, output_filename)
 
-            # Process the file
             try:
                 process_file(upload_path, output_path)
             except Exception as e:
@@ -165,12 +172,10 @@ def upload_file():
 
 @app.route('/complete/<filename>')
 def processing_complete(filename):
-    """Renders a page that says "Your file is ready!" with a download link."""
     return render_template('complete.html', filename=filename)
 
 @app.route('/download/<filename>')
 def download_file(filename):
-    """Serves the processed CSV as a file download."""
     path = os.path.join(OUTPUT_FOLDER, filename)
     if not os.path.exists(path):
         flash("File not found.")
@@ -178,4 +183,5 @@ def download_file(filename):
     return send_file(path, as_attachment=True)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port, debug=True)
