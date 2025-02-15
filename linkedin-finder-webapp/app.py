@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import time
 import random
+import shutil
 import subprocess
 import chromedriver_autoinstaller
 from werkzeug.utils import secure_filename
