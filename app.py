@@ -43,28 +43,28 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def install_chrome():
-    """Download and install a lightweight version of Chromium inside /tmp/."""
-    chrome_path = shutil.which("chromium-browser") or shutil.which("chromium")
+    """Install a fully functional Google Chrome version that works on Render."""
+    chrome_path = shutil.which("google-chrome") or shutil.which("chromium") or shutil.which("chromium-browser")
 
     if not chrome_path:
-        print("🚀 Installing Chromium in /tmp/ ...")
-        os.makedirs("/tmp/chromium", exist_ok=True)
+        print("🚀 Installing Chrome in /tmp/ ...")
+        os.makedirs("/tmp/chrome", exist_ok=True)
 
-        # Download prebuilt Chromium for headless use
+        # Download the latest stable Google Chrome build
         subprocess.run(
-            "wget -qO /tmp/chromium.zip https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_90.0.4430.85-1_amd64.deb",
+            "wget -qO /tmp/chrome-linux.zip https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_current_amd64.deb",
             shell=True,
             check=True
         )
         subprocess.run(
-            "dpkg -x /tmp/chromium.zip /tmp/chromium/",
+            "dpkg -x /tmp/chrome-linux.zip /tmp/chrome/",
             shell=True,
             check=True
         )
 
-        # Set environment variables for Chromium
-        os.environ["CHROME_BIN"] = "/tmp/chromium/usr/bin/chromium"
-        os.environ["PATH"] += os.pathsep + "/tmp/chromium/usr/bin/"
+        # Set environment variables so Selenium can find Chrome
+        os.environ["CHROME_BIN"] = "/tmp/chrome/opt/google/chrome/google-chrome"
+        os.environ["PATH"] += os.pathsep + "/tmp/chrome/opt/google/chrome/"
 
     chromedriver_autoinstaller.install()  # Auto-install ChromeDriver
 
