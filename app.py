@@ -3,8 +3,9 @@ import os
 import pandas as pd
 import time
 import random
-import chromedriver_autoinstaller
 import shutil
+import subprocess
+import chromedriver_autoinstaller
 from werkzeug.utils import secure_filename
 
 # Selenium imports
@@ -41,13 +42,20 @@ def allowed_file(filename):
     """Check if the uploaded file is a CSV."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def create_webdriver():
-    """Create and return a headless Chrome WebDriver with stealth options."""
-    chrome_path = shutil.which("google-chrome")  # Check if Chrome is installed
+def install_chrome():
+    """Manually install Chrome on Render if not found."""
+    chrome_path = shutil.which("google-chrome")
 
     if not chrome_path:
-        print("🚀 Installing Chrome...")
-        chromedriver_autoinstaller.install()  # Auto-install Chrome and ChromeDriver
+        print("🚀 Installing Google Chrome...")
+        subprocess.run("wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb", shell=True, check=True)
+        subprocess.run("apt install ./google-chrome-stable_current_amd64.deb -y", shell=True, check=True)
+    
+    chromedriver_autoinstaller.install()  # Auto-install ChromeDriver
+
+def create_webdriver():
+    """Ensure Chrome is installed, then create a headless WebDriver."""
+    install_chrome()  # Ensure Chrome is installed
 
     # Set up Chrome options
     chrome_options = Options()
@@ -177,9 +185,6 @@ def download_file(filename):
         return redirect(url_for('upload_file'))
     return send_file(path, as_attachment=True)
 
-import os
-
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 10000))  # Use Render's port or default to 10000
+    port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=True)
-
