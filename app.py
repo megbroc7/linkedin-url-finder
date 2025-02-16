@@ -18,7 +18,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Replace with something more secure in production
 
-# Folders for uploads and outputs
+# Folders for uploads and outputs (relative paths)
 UPLOAD_FOLDER = 'uploads'
 OUTPUT_FOLDER = 'outputs'
 ALLOWED_EXTENSIONS = {'csv'}
@@ -45,18 +45,16 @@ def allowed_file(filename):
 def install_chrome():
     """Ensure Chrome is installed, but only install it if it's missing."""
     chrome_path = shutil.which("google-chrome") or shutil.which("chromium") or shutil.which("chromium-browser")
-
+    
     if chrome_path:
         print(f"✅ Chrome is already installed at: {chrome_path}")
-        return  # ✅ Chrome is already installed, no need to reinstall
+        return  # Chrome is already installed, so we skip reinstallation
 
     print("🚀 Installing Chrome...")
     os.makedirs("/tmp/chrome", exist_ok=True)
 
-    # Ensure wget is installed
+    # Install wget if necessary and download Chrome
     subprocess.run("sudo apt update && sudo apt install -y wget", shell=True, check=True)
-
-    # Download Chrome
     subprocess.run(
         "wget -O /tmp/chrome-linux.zip https://storage.googleapis.com/chrome-for-testing-public/122.0.6261.94/linux64/chrome-linux.zip",
         shell=True,
@@ -76,16 +74,15 @@ def install_chrome():
 
 def create_webdriver():
     """Ensure Chrome is installed, then create a memory-optimized WebDriver."""
-    install_chrome()  # Ensure Chrome is installed
+    install_chrome()
 
-    # Set up Chrome options
     chrome_options = Options()
-    chrome_options.add_argument("--headless")  # Run in headless mode
+    chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")  # Reduce memory usage
-    chrome_options.add_argument("--disable-software-rasterizer")  
-    chrome_options.add_argument("--blink-settings=imagesEnabled=false")  # Don't load images
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--disable-software-rasterizer")
+    chrome_options.add_argument("--blink-settings=imagesEnabled=false")
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     
     # Hide automation flags
@@ -96,7 +93,6 @@ def create_webdriver():
     user_agent = random.choice(USER_AGENTS)
     chrome_options.add_argument(f"user-agent={user_agent}")
 
-    # Start WebDriver
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=chrome_options)
     
@@ -125,6 +121,35 @@ def search_linkedin_url(driver, first_name, last_name, company):
         return "Not found"
     except Exception as e:
         return f"Error: {str(e)}"
+
+def process_file(input_path, output_path):
+    """Reads the CSV, scrapes LinkedIn URLs, writes to a new CSV."""
+    df = pd.read_csv(input_path)
+
+    required = {"First Name", "Last Name", "Company"}
+    if not required.issubset(df.columns):
+        raise ValueError("Input CSV must have columns: First Name, Last Name, Company")
+
+    if len(df) > 100:
+        raise ValueError("You can only process up to 100 searches at once.")
+
+    df["LinkedIn URL"] = ""
+
+    for i, row in df.iterrows():
+        first_name = str(row["First Name"])
+        last_name = str(row["Last Name"])
+        company = str(row["Company"])
+
+        print(f"Searching LinkedIn for {first_name} {last_name} @ {company}...")
+        driver = create_webdriver()
+        linkedin_url = search_linkedin_url(driver, first_name, last_name, company)
+        driver.quit()
+
+        df.at[i, "LinkedIn URL"] = linkedin_url
+
+        time.sleep(random.uniform(5, 10))
+
+    df.to_csv(output_path, index=False)
 
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
@@ -169,5 +194,5 @@ def download_file(filename):
     return send_file(path, as_attachment=True)
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    port = int(os.environ.get("PORT", 8000))
+    app.run(host="0.0.0.0", port=port, debug=False)
