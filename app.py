@@ -5,6 +5,7 @@ import time
 import random
 import shutil
 import subprocess
+import zipfile  # <-- Added for unzipping in Python
 import chromedriver_autoinstaller
 from werkzeug.utils import secure_filename
 
@@ -53,19 +54,16 @@ def install_chrome():
     print("🚀 Installing Chrome...")
     os.makedirs("/tmp/chrome", exist_ok=True)
 
-    # Removed runtime installation of wget because wget is already installed.
-    # subprocess.run("sudo apt update && sudo apt install -y wget", shell=True, check=True)
-    
+    # Download the Chrome testing package
     subprocess.run(
         "wget -O /tmp/chrome-linux.zip https://storage.googleapis.com/chrome-for-testing-public/122.0.6261.94/linux64/chrome-linux.zip",
         shell=True,
         check=True
     )
-    subprocess.run(
-        "unzip /tmp/chrome-linux.zip -d /tmp/chrome/",
-        shell=True,
-        check=True
-    )
+    
+    # Use Python's zipfile module to extract the downloaded zip file
+    with zipfile.ZipFile("/tmp/chrome-linux.zip", "r") as zip_ref:
+        zip_ref.extractall("/tmp/chrome/")
 
     # Set environment variables for Selenium
     os.environ["CHROME_BIN"] = "/tmp/chrome/chrome-linux/chrome"
