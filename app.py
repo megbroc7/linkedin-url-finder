@@ -6,7 +6,7 @@ import random
 import shutil
 import subprocess
 import zipfile  # <-- Added for unzipping in Python
-import chromedriver_autoinstaller # type: ignore
+import chromedriver_autoinstaller  # type: ignore
 from werkzeug.utils import secure_filename
 
 # Selenium imports
@@ -15,6 +15,9 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
+
+# Import the Celery task from tasks.py
+from tasks import process_csv_task
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Replace with something more secure in production
@@ -171,11 +174,13 @@ def upload_file():
             output_path = os.path.join(OUTPUT_FOLDER, output_filename)
 
             try:
-                process_file(upload_path, output_path)
+                # Offload the processing to Celery instead of doing it synchronously
+                process_csv_task.delay(upload_path, output_path)
             except Exception as e:
                 flash(str(e))
                 return redirect(request.url)
 
+            flash("File is being processed in the background. Check back later for results.")
             return redirect(url_for('processing_complete', filename=output_filename))
 
     return render_template('index.html')
