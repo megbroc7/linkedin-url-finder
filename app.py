@@ -6,7 +6,7 @@ import random
 import shutil
 import subprocess
 import zipfile  # <-- Added for unzipping in Python
-import chromedriver_autoinstaller
+import chromedriver_autoinstaller # type: ignore
 from werkzeug.utils import secure_filename
 
 # Selenium imports
