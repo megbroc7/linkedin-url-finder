@@ -53,8 +53,9 @@ def install_chrome():
     print("🚀 Installing Chrome...")
     os.makedirs("/tmp/chrome", exist_ok=True)
 
-    # Install wget if necessary and download Chrome
-    subprocess.run("sudo apt update && sudo apt install -y wget", shell=True, check=True)
+    # Removed runtime installation of wget because wget is already installed.
+    # subprocess.run("sudo apt update && sudo apt install -y wget", shell=True, check=True)
+    
     subprocess.run(
         "wget -O /tmp/chrome-linux.zip https://storage.googleapis.com/chrome-for-testing-public/122.0.6261.94/linux64/chrome-linux.zip",
         shell=True,
