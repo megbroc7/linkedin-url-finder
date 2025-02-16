@@ -6,7 +6,6 @@ celery = Celery("tasks", broker=redis_url, backend=redis_url)
 
 @celery.task
 def process_csv_task(upload_path, output_path):
-    # Import process_file here to avoid circular imports
     from app import process_file
     process_file(upload_path, output_path)
     return "Processing is complete"
