@@ -126,36 +126,47 @@ def search_linkedin_url(driver, first_name, last_name, company):
     except Exception as e:
         return f"Error: {str(e)}"
 
-def process_file(input_path, output_path):
-    """Reads the CSV, scrapes LinkedIn URLs, writes to a new CSV."""
-    df = pd.read_csv(input_path)
+@app.route('/', methods=['GET', 'POST'])
+def upload_file():
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            flash('No file part in the request.')
+            return redirect(request.url)
 
-    # Validate columns
-    required = {"First Name", "Last Name", "Company"}
-    if not required.issubset(df.columns):
-        raise ValueError("Input CSV must have columns: First Name, Last Name, Company")
+        file = request.files['file']
+        if file.filename == '':
+            flash('No file selected.')
+            return redirect(request.url)
 
-    if len(df) > 100:
-        raise ValueError("You can only process up to 100 searches at once. Please reduce your file size.")
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            upload_path = os.path.join(UPLOAD_FOLDER, filename)
+            file.save(upload_path)
 
-    df["LinkedIn URL"] = ""
+            output_filename = filename.rsplit('.', 1)[0] + '_output.csv'
+            output_path = os.path.join(OUTPUT_FOLDER, output_filename)
 
-    for i, row in df.iterrows():
-        first_name = str(row["First Name"])
-        last_name = str(row["Last Name"])
-        company = str(row["Company"])
-        
-        print(f"Searching LinkedIn for {first_name} {last_name} @ {company}...")
-        driver = create_webdriver()
-        linkedin_url = search_linkedin_url(driver, first_name, last_name, company)
-        driver.quit()
+            try:
+                process_file(upload_path, output_path)
+            except Exception as e:
+                flash(str(e))
+                return redirect(request.url)
 
-        df.at[i, "LinkedIn URL"] = linkedin_url
-        
-        # Pause to avoid rate limits
-        time.sleep(random.uniform(5, 10))
+            return redirect(url_for('processing_complete', filename=output_filename))
 
-    df.to_csv(output_path, index=False)
+    return render_template('index.html')
+
+@app.route('/complete/<filename>')
+def processing_complete(filename):
+    return render_template('complete.html', filename=filename)
+
+@app.route('/download/<filename>')
+def download_file(filename):
+    path = os.path.join(OUTPUT_FOLDER, filename)
+    if not os.path.exists(path):
+        flash("File not found.")
+        return redirect(url_for('upload_file'))
+    return send_file(path, as_attachment=True)
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
