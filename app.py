@@ -1,11 +1,12 @@
 from flask import Flask, request, render_template, send_file, redirect, flash, url_for
 import os
-import pandas as pd
 import time
 import random
 import shutil
 import subprocess
-import zipfile  # <-- Added for unzipping in Python
+import zipfile  # For unzipping in Python
+import boto3
+import io
 import chromedriver_autoinstaller  # type: ignore
 from werkzeug.utils import secure_filename
 
@@ -22,13 +23,13 @@ from tasks import process_csv_task
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Replace with something more secure in production
 
-# Folders for uploads and outputs (relative paths)
+# (Optional) Local folders for debugging, though our primary storage is Spaces.
 UPLOAD_FOLDER = 'uploads'
 OUTPUT_FOLDER = 'outputs'
-ALLOWED_EXTENSIONS = {'csv'}
-
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+
+ALLOWED_EXTENSIONS = {'csv'}
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -42,40 +43,58 @@ USER_AGENTS = [
     "(KHTML, like Gecko) Chrome/94.0.4606.71 Mobile Safari/537.36",
 ]
 
+#############################################
+# 1) DigitalOcean Spaces Configuration
+#############################################
+DO_SPACES_REGION = os.environ.get("DO_SPACES_REGION", "nyc3")
+DO_SPACES_BUCKET = os.environ.get("DO_SPACES_BUCKET")
+DO_SPACES_KEY = os.environ.get("DO_SPACES_KEY")
+DO_SPACES_SECRET = os.environ.get("DO_SPACES_SECRET")
+
+if not all([DO_SPACES_BUCKET, DO_SPACES_KEY, DO_SPACES_SECRET]):
+    raise Exception("DigitalOcean Spaces credentials (DO_SPACES_BUCKET, DO_SPACES_KEY, DO_SPACES_SECRET) must be set in environment variables.")
+
+DO_SPACES_ENDPOINT = f"https://{DO_SPACES_REGION}.digitaloceanspaces.com"
+
+def get_spaces_client():
+    return boto3.client(
+        "s3",
+        region_name=DO_SPACES_REGION,
+        endpoint_url=DO_SPACES_ENDPOINT,
+        aws_access_key_id=DO_SPACES_KEY,
+        aws_secret_access_key=DO_SPACES_SECRET,
+    )
+
+#############################################
+# 2) Chrome Installation & WebDriver Setup
+#############################################
 def allowed_file(filename):
     """Check if the uploaded file is a CSV."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def install_chrome():
-    """Ensure Chrome is installed, but only install it if it's missing."""
+    """Install Chrome only if it isn't already available."""
     chrome_path = shutil.which("google-chrome") or shutil.which("chromium") or shutil.which("chromium-browser")
     
     if chrome_path:
         print(f"✅ Chrome is already installed at: {chrome_path}")
-        return  # Chrome is already installed, so we skip reinstallation
+        return
 
     print("🚀 Installing Chrome...")
     os.makedirs("/tmp/chrome", exist_ok=True)
-
-    # Download the Chrome testing package
     subprocess.run(
         "wget -O /tmp/chrome-linux.zip https://storage.googleapis.com/chrome-for-testing-public/122.0.6261.94/linux64/chrome-linux.zip",
         shell=True,
         check=True
     )
-    
-    # Use Python's zipfile module to extract the downloaded zip file
     with zipfile.ZipFile("/tmp/chrome-linux.zip", "r") as zip_ref:
         zip_ref.extractall("/tmp/chrome/")
-
-    # Set environment variables for Selenium
     os.environ["CHROME_BIN"] = "/tmp/chrome/chrome-linux/chrome"
     os.environ["PATH"] += os.pathsep + "/tmp/chrome/chrome-linux/"
-
     chromedriver_autoinstaller.install()  # Auto-install ChromeDriver
 
 def create_webdriver():
-    """Ensure Chrome is installed, then create a memory-optimized WebDriver."""
+    """Create a headless WebDriver after ensuring Chrome is installed."""
     install_chrome()
 
     chrome_options = Options()
@@ -86,73 +105,19 @@ def create_webdriver():
     chrome_options.add_argument("--disable-software-rasterizer")
     chrome_options.add_argument("--blink-settings=imagesEnabled=false")
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-    
-    # Hide automation flags
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option("useAutomationExtension", False)
 
-    # Rotate user-agent
     user_agent = random.choice(USER_AGENTS)
     chrome_options.add_argument(f"user-agent={user_agent}")
 
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=chrome_options)
-    
     return driver
 
-def search_linkedin_url(driver, first_name, last_name, company):
-    """Scrapes Google for a LinkedIn profile based on name & company."""
-    query = f"{first_name} {last_name} {company} site:linkedin.com"
-    search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}"
-
-    try:
-        driver.get(search_url)
-        time.sleep(random.uniform(3, 6))  # Wait like a real user
-
-        # Simulate scrolling
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight * 0.5);")
-        time.sleep(random.uniform(1, 2))
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(random.uniform(1, 2))
-
-        links = driver.find_elements(By.CSS_SELECTOR, "a")
-        for link in links:
-            href = link.get_attribute("href")
-            if href and "linkedin.com/in/" in href:
-                return href
-        return "Not found"
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-def process_file(input_path, output_path):
-    """Reads the CSV, scrapes LinkedIn URLs, writes to a new CSV."""
-    df = pd.read_csv(input_path)
-
-    required = {"First Name", "Last Name", "Company"}
-    if not required.issubset(df.columns):
-        raise ValueError("Input CSV must have columns: First Name, Last Name, Company")
-
-    if len(df) > 100:
-        raise ValueError("You can only process up to 100 searches at once.")
-
-    df["LinkedIn URL"] = ""
-
-    for i, row in df.iterrows():
-        first_name = str(row["First Name"])
-        last_name = str(row["Last Name"])
-        company = str(row["Company"])
-
-        print(f"Searching LinkedIn for {first_name} {last_name} @ {company}...")
-        driver = create_webdriver()
-        linkedin_url = search_linkedin_url(driver, first_name, last_name, company)
-        driver.quit()
-
-        df.at[i, "LinkedIn URL"] = linkedin_url
-
-        time.sleep(random.uniform(5, 10))
-
-    df.to_csv(output_path, index=False)
-
+#############################################
+# 3) Flask Routes
+#############################################
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
     if request.method == 'POST':
@@ -167,36 +132,55 @@ def upload_file():
 
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
-            upload_path = os.path.join(UPLOAD_FOLDER, filename)
-            file.save(upload_path)
+            file_data = file.read()
 
-            output_filename = filename.rsplit('.', 1)[0] + '_output.csv'
-            output_path = os.path.join(OUTPUT_FOLDER, output_filename)
+            # Create a Spaces key for the upload (using an "uploads/" prefix)
+            spaces_key = f"uploads/{filename}"
+
+            s3_client = get_spaces_client()
+            s3_client.put_object(
+                Bucket=DO_SPACES_BUCKET,
+                Key=spaces_key,
+                Body=file_data,
+                ACL='private'
+            )
+
+            output_key = f"outputs/{filename.rsplit('.', 1)[0]}_output.csv"
 
             try:
-                # Offload the processing to Celery instead of doing it synchronously
-                process_csv_task.delay(upload_path, output_path)
+                process_csv_task.delay(spaces_key, output_key)
             except Exception as e:
                 flash(str(e))
                 return redirect(request.url)
 
             flash("File is being processed in the background. Check back later for results.")
-            return redirect(url_for('processing_complete', filename=output_filename))
+            return redirect(url_for('processing_complete', filename=output_key))
 
     return render_template('index.html')
 
-@app.route('/complete/<filename>')
+@app.route('/complete/<path:filename>')
 def processing_complete(filename):
     return render_template('complete.html', filename=filename)
 
-@app.route('/download/<filename>')
+@app.route('/download/<path:filename>')
 def download_file(filename):
-    path = os.path.join(OUTPUT_FOLDER, filename)
-    if not os.path.exists(path):
-        flash("File not found.")
+    s3_client = get_spaces_client()
+    try:
+        obj = s3_client.get_object(Bucket=DO_SPACES_BUCKET, Key=filename)
+        file_data = obj['Body'].read()
+    except Exception as e:
+        flash(f"File not found in Spaces: {e}")
         return redirect(url_for('upload_file'))
-    return send_file(path, as_attachment=True)
 
+    return send_file(
+        io.BytesIO(file_data),
+        as_attachment=True,
+        download_name=filename.split('/')[-1]
+    )
+
+#############################################
+# 4) Running the App
+#############################################
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port, debug=False)
