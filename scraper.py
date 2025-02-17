@@ -25,7 +25,12 @@ USER_AGENTS = [
 
 def install_chrome():
     """Ensure Chrome is installed (if not, download and extract it)."""
-    chrome_path = shutil.which("google-chrome") or shutil.which("chromium") or shutil.which("chromium-browser")
+    chrome_path = (
+        shutil.which("google-chrome")
+        or shutil.which("google-chrome-stable")
+        or shutil.which("chromium")
+        or shutil.which("chromium-browser")
+    )
     if chrome_path:
         print(f"✅ Chrome is already installed at: {chrome_path}")
         return
