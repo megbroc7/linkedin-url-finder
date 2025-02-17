@@ -5,7 +5,7 @@ import random
 import pandas as pd
 from celery import Celery
 
-# Read your Redis URL from environment (as you had before).
+# Read your Redis URL from environment variables.
 redis_url = os.environ.get("REDIS_URL")
 celery = Celery("tasks", broker=redis_url, backend=redis_url)
 
@@ -15,15 +15,9 @@ def process_csv_task(input_key, output_key):
     Downloads 'input_key' from DigitalOcean Spaces, processes it with Selenium,
     and uploads the final CSV to 'output_key' in Spaces.
     """
-
-    # Import what we need from app.py
-    # (Avoid circular imports by importing within the function).
-    from app import (
-        get_spaces_client,
-        DO_SPACES_BUCKET,
-        create_webdriver,
-        search_linkedin_url
-    )
+    # Import only what is needed here to avoid circular dependencies.
+    from app import get_spaces_client, DO_SPACES_BUCKET
+    from scraper import create_webdriver, search_linkedin_url
 
     # 1) Connect to Spaces
     s3_client = get_spaces_client()
@@ -35,7 +29,7 @@ def process_csv_task(input_key, output_key):
     # 3) Parse CSV with Pandas
     df = pd.read_csv(io.BytesIO(file_data))
 
-    # 4) For each row, do your Selenium scraping
+    # 4) For each row, perform Selenium scraping
     for i, row in df.iterrows():
         first_name = str(row.get("First Name", ""))
         last_name = str(row.get("Last Name", ""))
@@ -62,7 +56,7 @@ def process_csv_task(input_key, output_key):
         Bucket=DO_SPACES_BUCKET,
         Key=output_key,
         Body=out_buf.read().encode('utf-8'),
-        ACL='private'  # Keep file private, or 'public-read' if needed
+        ACL='private'  # Adjust ACL if needed
     )
 
     return f"Processed CSV uploaded to {output_key}"
