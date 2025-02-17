@@ -1,20 +1,17 @@
-from flask import Flask, request, render_template, send_file, redirect, flash, url_for
+from flask import Flask, request, render_template, send_file, redirect, flash, url_for, jsonify
 import os
-import time
 import random
 import shutil
 import subprocess
 import zipfile  # For unzipping in Python
 import boto3
 import io
-import chromedriver_autoinstaller  # This may not be used here anymore, but left if needed elsewhere
+import chromedriver_autoinstaller  # Not used here anymore; kept for reference if needed elsewhere
 from werkzeug.utils import secure_filename
-
-# Import the Celery task from tasks.py
-from tasks import process_csv_task
+from tasks import process_csv_task, celery  # Import the Celery instance as well
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Replace with a more secure key in production
+app.secret_key = 'your_secret_key'  # Replace with something more secure in production
 
 # (Optional) Local folders for debugging; main storage is in Spaces.
 UPLOAD_FOLDER = 'uploads'
@@ -24,19 +21,7 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {'csv'}
 
-# (Optional) You can remove USER_AGENTS from here now that they're in scraper.py,
-# but we leave them if you plan to use them elsewhere.
-USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",
-    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:88.0) Gecko/20100101 Firefox/88.0",
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 15_2 like Mac OS X) AppleWebKit/605.1.15 "
-    "(KHTML, like Gecko) Version/15.2 Mobile/15E148 Safari/604.1",
-    "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/94.0.4606.71 Mobile Safari/537.36",
-]
+# (Optional) USER_AGENTS removed from here; assumed to be in scraper.py
 
 #############################################
 # 1) DigitalOcean Spaces Configuration
@@ -57,7 +42,7 @@ def get_spaces_client():
     )
 
 #############################################
-# 2) (Removed Selenium functions; now in scraper.py)
+# 2) Utility Functions
 #############################################
 
 def allowed_file(filename):
@@ -84,7 +69,7 @@ def upload_file():
             filename = secure_filename(file.filename)
             file_data = file.read()
 
-            # Choose a key in Spaces (using an "uploads/" prefix)
+            # Upload the CSV file to Spaces under an "uploads/" prefix.
             spaces_key = f"uploads/{filename}"
             s3_client = get_spaces_client()
             s3_client.put_object(
@@ -94,26 +79,41 @@ def upload_file():
                 ACL='private'
             )
 
-            # Define the output key for the processed file
+            # Define the output key for the processed file.
             output_key = f"outputs/{filename.rsplit('.', 1)[0]}_output.csv"
 
             try:
-                # Offload processing to Celery, passing Spaces keys
-                process_csv_task.delay(spaces_key, output_key)
+                # Offload processing to Celery and get the task id.
+                task = process_csv_task.delay(spaces_key, output_key)
             except Exception as e:
                 flash(str(e))
                 return redirect(request.url)
 
             flash("File is being processed in the background. Check back later for results.")
-            return redirect(url_for('processing_complete', filename=output_key))
-
+            # Redirect to a processing page that will poll for task completion.
+            return redirect(url_for('processing', task_id=task.id, output_key=output_key))
     return render_template('index.html')
+
+@app.route('/processing/<task_id>')
+def processing(task_id):
+    # Retrieve output_key from the query string.
+    output_key = request.args.get('output_key')
+    # Render processing.html which should have JS polling /status/<task_id>
+    return render_template('processing.html', task_id=task_id, output_key=output_key)
+
+@app.route('/status/<task_id>')
+def task_status(task_id):
+    result = celery.AsyncResult(task_id)
+    if result.ready():
+        return jsonify({"status": "ready"})
+    else:
+        return jsonify({"status": "pending"})
 
 @app.route('/complete/<path:filename>')
 def processing_complete(filename):
     """
-    This route is called after the user is told "Check back later."
-    `filename` is actually the Spaces key for the processed output.
+    This route renders the complete.html page where the user can download the file.
+    `filename` is the Spaces key for the processed CSV.
     """
     return render_template('complete.html', filename=filename)
 
